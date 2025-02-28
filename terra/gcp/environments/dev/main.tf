@@ -22,4 +22,14 @@ module "compute" {
     subnet_private_name = module.network.subnet_private_name
     subnet_full_access_name = module.network.subnet_full_access_name
     project_id = var.project_id
+    vpc_name    = var.vpc_name
+    os_user = var.os_user
+}
+
+module "data" {
+    source = "../../modules/data"
+    location = var.location[*]
+    project_id = var.project_id
+    vpc_name = var.vpc_name
+    region = var.region
 }

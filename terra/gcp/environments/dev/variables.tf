@@ -21,3 +21,11 @@ variable "region" {
 variable "zone" {
   type = list(string)
 }
+
+variable "os_user" {
+  type = string
+}
+
+variable "location" {
+  type = list(string)
+}

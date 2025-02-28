@@ -21,8 +21,3 @@ output "subnet_private_name" {
 output "subnet_full_access_name" {
   value = google_compute_subnetwork.subnet_full_access.name
 }
-
-# output "private_key" {
-#   value     = tls_private_key.ssh_key.private_key_pem
-#   sensitive = true # Помечаем как чувствительное значение, чтобы не выводить в лог
-# }
