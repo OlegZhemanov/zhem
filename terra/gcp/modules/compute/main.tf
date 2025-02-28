@@ -19,8 +19,16 @@ locals {
   ssh_public_key = file("~/.ssh/gcp_ed25519_pem.pub") # Specify the path to your public SSH key
 }
 
-data "google_compute_image" "ubuntu" {
-  family  = "ubuntu-2004-lts-arm64"
+locals {
+  user = "ozhemanov"
+}
+
+locals {
+  scopes = ["https://www.googleapis.com/auth/devstorage.read_only", "https://www.googleapis.com/auth/logging.write", "https://www.googleapis.com/auth/monitoring.write", "https://www.googleapis.com/auth/service.management.readonly", "https://www.googleapis.com/auth/servicecontrol", "https://www.googleapis.com/auth/trace.append"]
+}
+
+data "google_compute_image" "latest_ubuntu" {
+  family  = "ubuntu-2204-lts"
   project = "ubuntu-os-cloud"
 }
 
@@ -32,10 +40,10 @@ resource "google_compute_instance" "fill_public_instance" {
 
   boot_disk {
     auto_delete = true
-    device_name = "instance-20250225-235558"
+    device_name = "fill_public_instance"
 
     initialize_params {
-      image = data.google_compute_image.ubuntu.self_link
+      image = data.google_compute_image.latest_ubuntu.self_link
       size  = 20
       type  = "pd-balanced"
     }
@@ -56,14 +64,14 @@ resource "google_compute_instance" "fill_public_instance" {
   allow_stopping_for_update = true
 
   metadata = {
-    ssh-keys = "fraud:${local.ssh_public_key}}" # Используем локальный публичный ключ
+    ssh-keys = "${local.user}:${local.ssh_public_key}}" # Используем локальный публичный ключ
   }
 
   metadata_startup_script = "${file("../../../../scripts/phyton/create_user_auto.py")}"
 
   service_account {
     email  = google_service_account.vm_sa.email
-    scopes = ["https://www.googleapis.com/auth/devstorage.read_only", "https://www.googleapis.com/auth/logging.write", "https://www.googleapis.com/auth/monitoring.write", "https://www.googleapis.com/auth/service.management.readonly", "https://www.googleapis.com/auth/servicecontrol", "https://www.googleapis.com/auth/trace.append"]
+    scopes = local.scopes
   }
 
   tags = ["http-server", "https-server", "lb-health-check", "full-access"]
@@ -76,10 +84,10 @@ resource "google_compute_instance" "public_instance" {
 
   boot_disk {
     auto_delete = true
-    device_name = "instance-20250225-235558"
+    device_name = "public_instance"
 
     initialize_params {
-      image = "projects/centos-cloud/global/images/centos-stream-9-v20250212"
+      image = data.google_compute_image.latest_ubuntu.self_link
       size  = 20
       type  = "pd-balanced"
     }
@@ -100,17 +108,17 @@ resource "google_compute_instance" "public_instance" {
   allow_stopping_for_update = true
 
   metadata = {
-    ssh-keys = "fraud:${local.ssh_public_key}}" # Используем локальный публичный ключ
+    ssh-keys = "${local.user}:${local.ssh_public_key}}" # Используем локальный публичный ключ
   }
 
   metadata_startup_script = "${file("../../../../scripts/phyton/create_user_auto.py")}"
 
   service_account {
     email  = google_service_account.vm_sa.email
-    scopes = ["https://www.googleapis.com/auth/devstorage.read_only", "https://www.googleapis.com/auth/logging.write", "https://www.googleapis.com/auth/monitoring.write", "https://www.googleapis.com/auth/service.management.readonly", "https://www.googleapis.com/auth/servicecontrol", "https://www.googleapis.com/auth/trace.append"]
+    scopes = local.scopes
   }
 
-  tags = ["public"]
+  tags = ["http-server", "https-server", "lb-health-check", "public"]
 }
 
 resource "google_compute_instance" "private_instance" {
@@ -120,10 +128,10 @@ resource "google_compute_instance" "private_instance" {
 
   boot_disk {
     auto_delete = true
-    device_name = "instance-20250225-235558"
+    device_name = "private-instance"
 
     initialize_params {
-      image = data.google_compute_image.ubuntu.self_link
+      image = data.google_compute_image.latest_ubuntu.self_link
       size  = 20
       type  = "pd-balanced"
     }
@@ -144,26 +152,30 @@ resource "google_compute_instance" "private_instance" {
   allow_stopping_for_update = true
 
   metadata = {
-    ssh-keys = "fraud:${local.ssh_public_key}}" # Используем локальный публичный ключ
+    ssh-keys = "${local.user}:${local.ssh_public_key}}" # Используем локальный публичный ключ
   }
 
   metadata_startup_script = "${file("../../../../scripts/phyton/create_user_auto.py")}"
 
   service_account {
     email  = google_service_account.vm_sa.email
-    scopes = ["https://www.googleapis.com/auth/devstorage.read_only", "https://www.googleapis.com/auth/logging.write", "https://www.googleapis.com/auth/monitoring.write", "https://www.googleapis.com/auth/service.management.readonly", "https://www.googleapis.com/auth/servicecontrol", "https://www.googleapis.com/auth/trace.append"]
+    scopes = local.scopes
   }
 
-  tags = ["http-server", "https-server", "lb-health-check", "no-internet"]
+  tags = ["http-server", "https-server", "lb-health-check","no-internet", "public"]
 }
 
-resource "google_compute_instance" "instance-20250225-235558" {
+resource "google_compute_instance" "test-test" {
+  machine_type = "n1-standard-1"
+  allow_stopping_for_update = true
+  name         = "test-test"
+
   boot_disk {
     auto_delete = true
-    device_name = "instance-20250225-235558"
+    device_name = "test-test"
 
     initialize_params {
-      image = data.google_compute_image.ubuntu.self_link
+      image = data.google_compute_image.latest_ubuntu.self_link
       size  = 20
       type  = "pd-balanced"
     }
@@ -174,10 +186,6 @@ resource "google_compute_instance" "instance-20250225-235558" {
   labels = {
     goog-ec-src = "vm_add-tf"
   }
-
-  machine_type = "n1-standard-1"
-  allow_stopping_for_update = true
-  name         = "test-test"
 
   network_interface {
     access_config {
@@ -191,7 +199,11 @@ resource "google_compute_instance" "instance-20250225-235558" {
 
   service_account {
     email  = google_service_account.vm_sa.email
-    scopes = ["https://www.googleapis.com/auth/devstorage.read_only", "https://www.googleapis.com/auth/logging.write", "https://www.googleapis.com/auth/monitoring.write", "https://www.googleapis.com/auth/service.management.readonly", "https://www.googleapis.com/auth/servicecontrol", "https://www.googleapis.com/auth/trace.append"]
+    scopes = local.scopes
+  }
+  
+  metadata = {
+    ssh-keys = "${local.user}:${local.ssh_public_key}}" # Используем локальный публичный ключ
   }
 
   tags = ["http-server", "https-server", "lb-health-check", "full-access"]

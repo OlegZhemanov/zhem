@@ -67,7 +67,7 @@ resource "google_compute_firewall" "allow_internal" {
     ports    = ["0-65535"]
   }
 
-  source_ranges = [var.subnet_cidr[0], var.subnet_cidr[1]]
+  source_ranges = [var.subnet_cidr[0], var.subnet_cidr[1], var.subnet_cidr[2]]
   target_tags   = ["public"]
 }
 
@@ -75,11 +75,13 @@ resource "google_compute_firewall" "deny_internet" {
   name    = "deny-internet"
   network = google_compute_network.vpc.name
 
+  direction = "EGRESS"  # Блокировка исходящего трафика
+
   deny {
-    protocol = "all"
+    protocol = "all"  # Блокировать все протоколы
   }
 
-  source_ranges = ["0.0.0.0/0"]
+  destination_ranges = ["0.0.0.0/0"] 
   target_tags   = ["no-internet"]
 }
 
