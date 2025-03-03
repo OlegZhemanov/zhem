@@ -1,4 +1,4 @@
-project_id = "spry-pipe-451218-k2"
+project_id = "project_id"
 region = "northamerica-northeast2"
 vpc_name = "prod"
 vpc_cidr = "10.0.0.0/16"

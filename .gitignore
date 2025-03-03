@@ -2,3 +2,5 @@ terraform.tfstate*
 *terraform.lock*
 .terraform
 access*
+terraform_backup*
+docker/Dockerfile
