@@ -1,0 +1,5 @@
+---
+ansible_host                 : 34.130.133.155
+ansible_user                 : ozhemanov
+ansible_ssh_private_key_file : /Users/ns/.ssh/gcp_ed25519_pem
+ansible_python_interpreter   : /usr/bin/python3.10
