@@ -1,175 +1,126 @@
-provider "aws" {
-  region = "ca-central-1" # Change to your desired region
+data "aws_availability_zones" "available" {}
+
+resource "aws_vpc" "main" {
+  cidr_block = var.vpc_cidr
+  tags = merge(var.common_tags, {Name = "${var.env}-vpc", Environment = "${var.env}" })
 }
 
-data "aws_availability_zones" "available" {
+resource "aws_internet_gateway" "main" {
+  vpc_id = aws_vpc.main.id
+  tags = merge(var.common_tags, {Name = "${var.env}-igw", Environment = "${var.env}" })
 }
 
-# output "availability_zones" {
-#   value = data.aws_availability_zones.available
-# }
-
-# Create a VPC
-resource "aws_vpc" "my_vpc" {
-  cidr_block = "10.0.0.0/16"
-  enable_dns_support = true
-  enable_dns_hostnames = true
-
-  tags = {
-    Name = "my-vpc"
-  }
+#Public Subnets and Routing
+resource "aws_subnet" "public_subnets" {
+  count                   = length(var.public_subnet_cidr)
+  vpc_id                  = aws_vpc.main.id
+  cidr_block              = element(var.public_subnet_cidr, count.index)
+  availability_zone       = data.aws_availability_zones.available.names[count.index]
+  map_public_ip_on_launch = true
+  tags = merge(var.common_tags, {Name = "${var.env}-public-${count.index + 1}", Environment = "${var.env}" })
 }
 
-# Create an Internet Gateway
-resource "aws_internet_gateway" "my_igw" {
-  vpc_id = aws_vpc.my_vpc.id
 
-  tags = {
-    Name = "my-igw"
-  }
-}
-
-# Create a Public Subnet (Subnet 1: Access to and from the internet)
-resource "aws_subnet" "public_subnet" {
-  vpc_id            = aws_vpc.my_vpc.id
-  cidr_block        = "10.0.1.0/24"
-  availability_zone = data.aws_availability_zones.available.names[0] # Change to your desired AZ
-
-  tags = {
-    Name = "public-subnet"
-  }
-}
-
-# Create a Route Table for the Public Subnet
-resource "aws_route_table" "public_route_table" {
-  vpc_id = aws_vpc.my_vpc.id
-
+resource "aws_route_table" "public_subnets" {
+  vpc_id = aws_vpc.main.id
   route {
     cidr_block = "0.0.0.0/0"
-    gateway_id = aws_internet_gateway.my_igw.id
+    gateway_id = aws_internet_gateway.main.id
   }
-
-  tags = {
-    Name = "public-route-table"
-  }
+  tags = merge(var.common_tags, {Name = "${var.env}-route-public-subnets", Environment = "${var.env}" })
 }
 
-# Associate the Public Subnet with the Public Route Table
-resource "aws_route_table_association" "public_subnet_association" {
-  subnet_id      = aws_subnet.public_subnet.id
-  route_table_id = aws_route_table.public_route_table.id
+resource "aws_route_table_association" "public_routes" {
+  count          = length(aws_subnet.public_subnets[*].id)
+  route_table_id = aws_route_table.public_subnets.id
+  subnet_id      = element(aws_subnet.public_subnets[*].id, count.index)
 }
 
-# Create a Private Subnet with Internet Access (Subnet 2: Only access to the internet)
-resource "aws_subnet" "private_subnet_with_internet" {
-  vpc_id            = aws_vpc.my_vpc.id
-  cidr_block        = "10.0.2.0/24"
-  availability_zone = data.aws_availability_zones.available.names[1] # Change to your desired AZ
-
-  tags = {
-    Name = "private-subnet-with-internet"
-  }
+#NAT Gateways with Elastic IPs
+resource "aws_eip" "nat" {
+  count   = length(var.private_subnet_cidr_eip)
+  domain = "vpc"
+  tags = merge(var.common_tags, {Name = "${var.env}-nat-gw-${count.index + 1}", Environment = "${var.env}" })
 }
 
-# Create an EIP for the NAT Gateway
-resource "aws_eip" "nat_eip" {
-  tags = {
-    Name = "nat-eip"
-  }
+resource "aws_nat_gateway" "nat" {
+  count         = length(var.private_subnet_cidr_eip)
+  allocation_id = aws_eip.nat[count.index].id
+  subnet_id     = element(aws_subnet.public_subnets[*].id, count.index)
+  tags = merge(var.common_tags, {Name = "${var.env}-nat-gw-${count.index + 1}", Environment = "${var.env}" })
 }
 
-# Create a NAT Gateway for the Private Subnet with Internet Access
-resource "aws_nat_gateway" "my_nat_gateway" {
-  allocation_id = aws_eip.nat_eip.id
-  subnet_id     = aws_subnet.public_subnet.id
-
-  tags = {
-    Name = "my-nat-gateway"
-  }
+#Private Subnets and Routing
+resource "aws_subnet" "private_subnets_eip" {
+  count             = length(var.private_subnet_cidr_eip)
+  vpc_id            = aws_vpc.main.id
+  cidr_block        = element(var.private_subnet_cidr_eip, count.index)
+  availability_zone = data.aws_availability_zones.available.names[count.index]
+  tags = merge(var.common_tags, {Name = "${var.env}-private-eip-${count.index + 1}", Environment = "${var.env}" })
 }
 
-# Create a Route Table for the Private Subnet with Internet Access
-resource "aws_route_table" "private_route_table_with_internet" {
-  vpc_id = aws_vpc.my_vpc.id
-
+resource "aws_route_table" "private_subnets_eip" {
+  count  = length(var.private_subnet_cidr_eip)
+  vpc_id = aws_vpc.main.id
   route {
-    cidr_block     = "0.0.0.0/0"
-    nat_gateway_id = aws_nat_gateway.my_nat_gateway.id
+    cidr_block = "0.0.0.0/0"
+    gateway_id = aws_nat_gateway.nat[count.index].id
   }
+  tags = merge(var.common_tags, {Name = "${var.env}-route-private-subnet-eip-${count.index + 1}", Environment = "${var.env}" })
+}
 
-  tags = {
-    Name = "private-route-table-with-internet"
+resource "aws_route_table_association" "private_routes" {
+  count          = length(aws_subnet.private_subnets_eip[*].id)
+  route_table_id = aws_route_table.private_subnets_eip[count.index].id
+  subnet_id      = element(aws_subnet.private_subnets_eip[*].id, count.index)
+}
+
+#Private Subnets and Routing without Elastic IPs
+resource "aws_subnet" "private_subnets" {
+  count             = length(var.private_subnet_cidr)
+  vpc_id            = aws_vpc.main.id
+  cidr_block        = element(var.private_subnet_cidr, count.index)
+  availability_zone = data.aws_availability_zones.available.names[count.index]
+  tags = merge(var.common_tags, {Name = "${var.env}-private-${count.index + 1}", Environment = "${var.env}" })
+}
+
+resource "aws_route_table" "private_subnets" {
+  count  = length(var.private_subnet_cidr)
+  vpc_id = aws_vpc.main.id
+  route {
+    cidr_block = "0.0.0.0/0"
+    gateway_id = aws_internet_gateway.main.id
   }
+  tags = merge(var.common_tags, {Name = "${var.env}-route-private-subnet-${count.index + 1}", Environment = "${var.env}" })
 }
 
-# Associate the Private Subnet with the Private Route Table
-resource "aws_route_table_association" "private_subnet_with_internet_association" {
-  subnet_id      = aws_subnet.private_subnet_with_internet.id
-  route_table_id = aws_route_table.private_route_table_with_internet.id
+resource "aws_route_table_association" "private_routes_without_eip" {
+  count          = length(aws_subnet.private_subnets[*].id)
+  route_table_id = aws_route_table.private_subnets[count.index].id
+  subnet_id      = element(aws_subnet.private_subnets[*].id, count.index)
 }
 
-# Create a Private Subnet without Internet Access (Subnet 3: No access to or from the internet)
-resource "aws_subnet" "private_subnet_without_internet" {
-  vpc_id            = aws_vpc.my_vpc.id
-  cidr_block        = "10.0.3.0/24"
-  availability_zone = data.aws_availability_zones.available.names[2] # Change to your desired AZ
+#Database Subnets and Routing 
+resource "aws_subnet" "database_subnets" {
+  count             = length(var.database_subnets_cidr)
+  vpc_id            = aws_vpc.main.id
+  cidr_block        = element(var.database_subnets_cidr, count.index)
+  availability_zone = data.aws_availability_zones.available.names[count.index]
+  tags = merge(var.common_tags, {Name = "${var.env}-database-${count.index + 1}", Environment = "${var.env}" })
+}
 
-  tags = {
-    Name = "private-subnet-without-internet"
+resource "aws_route_table" "database_subnets" {
+  count  = length(var.database_subnets_cidr)
+  vpc_id = aws_vpc.main.id
+  route {
+    cidr_block = "0.0.0.0/0"
+    gateway_id = aws_internet_gateway.main.id
   }
+  tags = merge(var.common_tags, {Name = "${var.env}-route-database-subnet-${count.index + 1}", Environment = "${var.env}" })
 }
 
-# Create a Route Table for the Private Subnet without Internet Access
-resource "aws_route_table" "private_route_table_without_internet" {
-  vpc_id = aws_vpc.my_vpc.id
-
-  tags = {
-    Name = "private-route-table-without-internet"
-  }
-}
-
-# Associate the Private Subnet with the Private Route Table
-resource "aws_route_table_association" "private_subnet_without_internet_association" {
-  subnet_id      = aws_subnet.private_subnet_without_internet.id
-  route_table_id = aws_route_table.private_route_table_without_internet.id
-}
-
-# Security Group to allow communication between subnets
-resource "aws_security_group" "allow_internal" {
-  vpc_id = aws_vpc.my_vpc.id
-
-  ingress {
-    from_port   = 0
-    to_port     = 0
-    protocol    = "-1"
-    cidr_blocks = [aws_vpc.my_vpc.cidr_block]
-  }
-
-  egress {
-    from_port   = 0
-    to_port     = 0
-    protocol    = "-1"
-    cidr_blocks = [aws_vpc.my_vpc.cidr_block]
-  }
-
-  tags = {
-    Name = "allow-internal"
-  }
-}
-
-# Output the VPC and Subnet IDs
-output "vpc_id" {
-  value = aws_vpc.my_vpc.id
-}
-
-output "public_subnet_id" {
-  value = aws_subnet.public_subnet.id
-}
-
-output "private_subnet_with_internet_id" {
-  value = aws_subnet.private_subnet_with_internet.id
-}
-
-output "private_subnet_without_internet_id" {
-  value = aws_subnet.private_subnet_without_internet.id
+resource "aws_route_table_association" "database_routes" {
+  count          = length(aws_subnet.database_subnets[*].id)
+  route_table_id = aws_route_table.database_subnets[count.index].id
+  subnet_id      = element(aws_subnet.database_subnets[*].id, count.index)
 }
