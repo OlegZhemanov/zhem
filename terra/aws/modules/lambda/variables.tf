@@ -70,3 +70,14 @@ variable "tags" {
   type        = map(string)
   default     = {}
 }
+
+variable "environment" {
+  description = "Name of the API Gateway stage"
+  type        = string
+  default     = "dev"
+}
+
+variable "aws_apigatewayv2_api" {
+  description = "Name of the API Gateway stage"
+  type        = string
+}

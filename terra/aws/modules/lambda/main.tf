@@ -1,8 +1,8 @@
 #TODO data
 resource "aws_lambda_function" "this" {
   s3_bucket = "ozs-storage"
-#   s3_key    = "${api_stage_name}/myweb/index.zip"
-  s3_key    = "dev/myweb/index.zip"
+#   s3_key    = "${environment}/myweb/index.zip"
+  s3_key    = "${var.environment}/myweb/index.zip"
 
   function_name = var.function_name
   role          = aws_iam_role.lambda_role.arn
@@ -89,5 +89,5 @@ resource "aws_lambda_permission" "api_gw" {
   function_name = aws_lambda_function.this.function_name
   principal     = "apigateway.amazonaws.com"
   #TODO data
-  source_arn    = "${var.aws_apigatewayv2_api.this.execution_arn}/*/*/${var.function_name}"
+  source_arn    = "${var.aws_apigatewayv2_api}/*/*/${var.function_name}"
 }

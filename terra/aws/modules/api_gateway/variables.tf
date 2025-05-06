@@ -10,7 +10,7 @@ variable "api_method" {
   default     = "ANY"
 }
 
-variable "api_stage_name" {
+variable "environment" {
   description = "Name of the API Gateway stage"
   type        = string
   default     = "dev"

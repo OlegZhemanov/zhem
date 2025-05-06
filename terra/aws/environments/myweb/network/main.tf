@@ -5,7 +5,7 @@ provider "aws" {
 terraform {
   backend "s3" {
     bucket = "ozs-terra"
-    key = "myweb/terraform.tfstate"
+    key = "myweb/network/terraform.tfstate"
     region = "ca-central-1"
   }
 }
@@ -21,3 +21,5 @@ module "network" {
   database_subnets_cidr   = var.database_subnets_cidr
   common_tags = var.common_tags
 }
+
+
