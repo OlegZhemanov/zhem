@@ -10,24 +10,14 @@ terraform {
   }
 }
 
-data "terraform_remote_state" "network" {
-  backend = "s3"
-  config = {
-    bucket = "ozs-terra"
-    key    = "myweb/network/terraform.tfstate"
-    region = var.region
-  }
-}
-
-data "terraform_remote_state" "lambda" {
-  backend = "s3"
-  config = {
-    bucket = "ozs-terra"
-    key    = "myweb/lambda/terraform.tfstate"
-    region = var.region
-  }
-  
-}
+# data "terraform_remote_state" "network" {
+#   backend = "s3"
+#   config = {
+#     bucket = "ozs-terra"
+#     key    = "myweb/network/terraform.tfstate"
+#     region = var.region
+#   }
+# }
 
 module "lambda_main_page" {
   source = "../../../modules/lambda"
@@ -41,5 +31,6 @@ module "lambda_main_page" {
 module "api_gateway" {
   source = "../../../modules/api_gateway"
 
+  lambda_function_invoke_arn = module.lambda_main_page.lambda_function_invoke_arn
   function_name = var.function_name
 }

@@ -2,7 +2,7 @@
 resource "aws_lambda_function" "this" {
   s3_bucket = "ozs-storage"
 #   s3_key    = "${environment}/myweb/index.zip"
-  s3_key    = "${var.environment}/myweb/index.zip"
+  s3_key    = "${var.environment}/myweb/${var.function_name}.zip"
 
   function_name = var.function_name
   role          = aws_iam_role.lambda_role.arn

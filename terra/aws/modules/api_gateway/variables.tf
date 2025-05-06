@@ -39,3 +39,8 @@ variable "tags" {
   type        = map(string)
   default     = {}
 }
+
+variable "lambda_function_invoke_arn" {
+  description = "Name of the API Gateway stage"
+  type        = string
+}

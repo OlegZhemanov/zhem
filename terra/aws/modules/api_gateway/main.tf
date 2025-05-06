@@ -10,7 +10,7 @@ resource "aws_apigatewayv2_integration" "this" {
   connection_type = "INTERNET"
   description            = "Lambda integration"
   integration_method     = "POST"
-  integration_uri        = var.aws_lambda_function.this.invoke_arn
+  integration_uri        = var.lambda_function_invoke_arn
   passthrough_behavior   = "WHEN_NO_MATCH"
   payload_format_version = "2.0"
 }
