@@ -1,8 +1,12 @@
 #TODO data
+
+data "aws_caller_identity" "current" {}
+
 resource "aws_lambda_function" "this" {
-  s3_bucket = "ozs-storage"
-#   s3_key    = "${environment}/myweb/index.zip"
-  s3_key    = "${var.environment}/myweb/${var.function_name}.zip"
+  # s3_bucket = "ozs-storage"
+  s3_bucket = var.bucket_name
+  #   s3_key    = "${environment}/myweb/index.zip"
+  s3_key = "${var.environment}/myweb/${var.function_name}.zip"
 
   function_name = var.function_name
   role          = aws_iam_role.lambda_role.arn
@@ -13,6 +17,11 @@ resource "aws_lambda_function" "this" {
   architectures = var.architectures
   ephemeral_storage {
     size = var.ephemeral_storage_size
+  }
+
+
+  environment {
+    variables = var.sns ? { "${var.env_var_key}" = "${var.sns_topic_arn}" } : {}
   }
 
   tags = var.tags
@@ -77,6 +86,23 @@ resource "aws_iam_role_policy" "lambda_logs" {
   })
 }
 
+resource "aws_iam_role_policy" "lambda_sns" {
+  count = var.sns ? 1 : 0
+  name  = "${var.function_name}-sns-policy"
+  role  = aws_iam_role.lambda_role.id
+
+  policy = jsonencode({
+    Version : "2012-10-17",
+    Statement : [
+      {
+        Effect : "Allow",
+        Action : "sns:Publish",
+        Resource : "arn:aws:sns:${var.region}:${data.aws_caller_identity.current.account_id}:${var.topic_name}"
+      }
+    ]
+  })
+}
+
 resource "aws_lambda_function_event_invoke_config" "this" {
   function_name                = aws_lambda_function.this.function_name
   maximum_event_age_in_seconds = var.maximum_event_age
@@ -89,5 +115,5 @@ resource "aws_lambda_permission" "api_gw" {
   function_name = aws_lambda_function.this.function_name
   principal     = "apigateway.amazonaws.com"
   #TODO data
-  source_arn    = "${var.aws_apigatewayv2_api}/*/*/${var.function_name}"
+  source_arn = "${var.aws_apigatewayv2_api}/*/*/${var.function_name}"
 }

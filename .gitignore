@@ -6,4 +6,5 @@ terraform_backup*
 docker/Dockerfile
 dev_backend_backup
 dev_frontend_backup
-scripts/*
+# scripts/*
+*.zip

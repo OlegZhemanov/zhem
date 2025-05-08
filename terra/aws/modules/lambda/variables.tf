@@ -1,7 +1,12 @@
+variable "region" {
+  description = "AWS region"
+  type        = string
+}
+
 variable "function_name" {
   description = "Name of the Lambda function"
   type        = string
-  default     = "new_web_app"
+  # default     = "new_web_app"
 }
 
 variable "handler" {
@@ -80,4 +85,24 @@ variable "environment" {
 variable "aws_apigatewayv2_api" {
   description = "Name of the API Gateway stage"
   type        = string
+}
+
+variable "env_var_key" {
+  type = string
+}
+
+variable "sns_topic_arn" {
+  type = string
+}
+
+variable "sns" {
+  type = bool
+}
+
+variable "bucket_name" {
+  type = string
+}
+
+variable "topic_name" {
+  description = "Create new topic"
 }
