@@ -7,12 +7,10 @@ def lambda_handler(event, context):
     sns_topic_arn = os.environ['SNS_TOPIC_ARN']
     
     try:
-        # Parse the input - could come directly from event or event body
+        # Parse the input
         if 'body' in event:
-            # API Gateway proxy integration sends JSON in body
             message_data = json.loads(event['body'])
         else:
-            # Direct invocation case
             message_data = event
         
         # Validate required fields
@@ -24,21 +22,29 @@ def lambda_handler(event, context):
                     'body': json.dumps({'error': f'Missing required field: {field}'})
                 }
         
+        # Format message as plain text
+        text_message = f"""
+        Name: {message_data['name']}
+        Email: {message_data['email']}
+        Message: {message_data['message']}
+        """
+        
         # Create SNS client
         sns_client = boto3.client('sns')
         
-        # Publish message
+        # Publish message with custom Subject
         response = sns_client.publish(
             TopicArn=sns_topic_arn,
-            Message=json.dumps(message_data),
-            Subject=f"New message from {message_data['name']}"
+            Message=text_message,
+            Subject=f"New message from: {message_data['name']}"  # Измененный Subject
         )
         
         return {
             'statusCode': 200,
             'body': json.dumps({
                 'message': 'Successfully published to SNS',
-                'messageId': response['MessageId']
+                'messageId': response['MessageId'],
+                'subjectUsed': f"New message from: {message_data['name']}"  # Для отладки
             })
         }
     
