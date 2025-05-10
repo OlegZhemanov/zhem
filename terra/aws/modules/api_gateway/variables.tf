@@ -1,7 +1,7 @@
-variable "function_name" {
+variable "api_gateway_name" {
   description = "Name of the Lambda function"
   type        = string
-  default     = "new_web_app"
+  default     = "new_api"
 }
 
 variable "api_method" {
@@ -43,4 +43,20 @@ variable "tags" {
 variable "lambda_function_invoke_arn" {
   description = "Name of the API Gateway stage"
   type        = string
+}
+
+variable "api_gateway_id" {
+  description = "ID of the existing API Gateway"
+  type        = string
+}
+
+variable "routes" {
+  description = "Map of routes to be added to the API Gateway"
+  type = map(object({
+    method               = string
+    lambda_invoke_arn    = string
+    throttling_burst_limit = optional(number, 50)
+    throttling_rate_limit  = optional(number, 10)
+  }))
+  default = {}
 }

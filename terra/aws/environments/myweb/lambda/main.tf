@@ -10,34 +10,18 @@ terraform {
   }
 }
 
-# data "terraform_remote_state" "network" {
-#   backend = "s3"
-#   config = {
-#     bucket = "ozs-terra"
-#     key    = "myweb/network/terraform.tfstate"
-#     region = var.region
-#   }
-# }
-
 module "lambda_main_page" {
   source = "../../../modules/lambda"
   region = var.region
 
   function_name        = var.function_name
   environment          = var.environment
-  aws_apigatewayv2_api = module.api_gateway.aws_apigatewayv2_api_execution_arn
+  aws_apigatewayv2_api = aws_apigatewayv2_api.api_gateway.execution_arn
   sns                  = false
   sns_topic_arn        = module.sns.sns_topic_arn
   topic_name           = var.topic_name
   env_var_key          = var.env_var_key
   bucket_name          = var.bucket_name
-}
-
-module "api_gateway" {
-  source = "../../../modules/api_gateway"
-
-  lambda_function_invoke_arn = module.lambda_main_page.lambda_function_invoke_arn
-  function_name              = var.function_name
 }
 
 module "sns" {
@@ -52,20 +36,12 @@ module "lambda_first_project" {
 
   function_name        = var.function_name_first_project
   environment          = var.environment
-  aws_apigatewayv2_api = module.api_gateway_first_project.aws_apigatewayv2_api_execution_arn
+  aws_apigatewayv2_api = aws_apigatewayv2_api.api_gateway.execution_arn
   sns                  = false
   sns_topic_arn        = module.sns.sns_topic_arn
   topic_name           = var.topic_name
   env_var_key          = var.env_var_key
   bucket_name          = var.bucket_name
-
-}
-
-module "api_gateway_first_project" {
-  source = "../../../modules/api_gateway"
-
-  lambda_function_invoke_arn = module.lambda_first_project.lambda_function_invoke_arn
-  function_name              = var.function_name_first_project
 }
 
 data "archive_file" "create_zip_sender_to_sns" {
@@ -87,7 +63,7 @@ module "lambda_sender_to_sns" {
 
   function_name        = var.function_name_sender_to_sns
   environment          = var.environment
-  aws_apigatewayv2_api = module.api_gateway_sender_to_sns.aws_apigatewayv2_api_execution_arn
+  aws_apigatewayv2_api = aws_apigatewayv2_api.api_gateway.execution_arn
   sns                  = true
   sns_topic_arn        = module.sns.sns_topic_arn
   topic_name           = var.topic_name
@@ -98,9 +74,79 @@ module "lambda_sender_to_sns" {
   depends_on           = [aws_s3_object.put_zip_sender_to_sns_to_s3]
 }
 
-module "api_gateway_sender_to_sns" {
-  source = "../../../modules/api_gateway"
+resource "aws_apigatewayv2_api" "api_gateway" {
+  name          = "${var.api_gateway_name}-api"
+  protocol_type = "HTTP"
+}
 
-  lambda_function_invoke_arn = module.lambda_sender_to_sns.lambda_function_invoke_arn
-  function_name              = var.function_name_sender_to_sns
+resource "aws_apigatewayv2_stage" "api_gateway_stage" {
+  api_id      = aws_apigatewayv2_api.api_gateway.id
+  name        = var.environment
+  auto_deploy = true
+
+  dynamic "route_settings" {
+    for_each = var.routes
+    content {
+      route_key              = "${route_settings.value.method} /${route_settings.key}"
+      throttling_burst_limit = try(route_settings.value.throttling_burst_limit, 50)
+      throttling_rate_limit  = try(route_settings.value.throttling_rate_limit, 10)
+    }
+  }
+
+  dynamic "access_log_settings" {
+    for_each = var.api_log_destination_arn != null ? [1] : []
+    content {
+      destination_arn = var.api_log_destination_arn
+      format = jsonencode({
+        requestId        = "$context.requestId"
+        ip               = "$context.identity.sourceIp"
+        requestTime      = "$context.requestTime"
+        httpMethod       = "$context.httpMethod"
+        routeKey         = "$context.routeKey"
+        status           = "$context.status"
+        protocol         = "$context.protocol"
+        responseLength   = "$context.responseLength"
+        integrationError = "$context.integration.error"
+      })
+    }
+  }
+}
+
+module "path_for_main_page" {
+  source = "../../../modules/path_for_api_gateway"
+
+  api_gateway_id = aws_apigatewayv2_api.api_gateway.id
+
+  routes = {
+    "main_page" = {
+      method            = var.api_method
+      lambda_invoke_arn = module.lambda_main_page.lambda_function_invoke_arn
+    }
+  }
+}
+
+module "path_for_first_project" {
+  source = "../../../modules/path_for_api_gateway"
+
+  api_gateway_id = aws_apigatewayv2_api.api_gateway.id
+
+  routes = {
+    "first_project" = {
+      method            = var.api_method
+      lambda_invoke_arn = module.lambda_first_project.lambda_function_invoke_arn
+    }
+  }
+}
+
+module "path_for_sender" {
+  source = "../../../modules/path_for_api_gateway"
+
+  api_gateway_id = aws_apigatewayv2_api.api_gateway.id
+
+  routes = {
+    "sender_to_sns" = {
+      method            = var.api_method
+      lambda_invoke_arn = module.lambda_sender_to_sns.lambda_function_invoke_arn
+    }
+  }
 }

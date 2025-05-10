@@ -1,35 +1,22 @@
 resource "aws_apigatewayv2_api" "this" {
-  name          = "${var.function_name}-api"
+  name          = "${var.api_gateway_name}-api"
   protocol_type = "HTTP"
-}
-
-resource "aws_apigatewayv2_integration" "this" {
-  api_id           = aws_apigatewayv2_api.this.id
-  integration_type = "AWS_PROXY"
-
-  connection_type = "INTERNET"
-  description            = "Lambda integration"
-  integration_method     = "POST"
-  integration_uri        = var.lambda_function_invoke_arn
-  passthrough_behavior   = "WHEN_NO_MATCH"
-  payload_format_version = "2.0"
-}
-
-resource "aws_apigatewayv2_route" "this" {
-  api_id    = aws_apigatewayv2_api.this.id
-  route_key = "${var.api_method} /${var.function_name}"
-  target    = "integrations/${aws_apigatewayv2_integration.this.id}"
 }
 
 resource "aws_apigatewayv2_stage" "this" {
   api_id      = aws_apigatewayv2_api.this.id
   name        = var.environment
   auto_deploy = true
-  depends_on  = [aws_apigatewayv2_route.this]
-  route_settings {
-    route_key              = "${var.api_method} /${var.function_name}"
-    throttling_burst_limit = var.api_throttling_burst_limit
-    throttling_rate_limit  = var.api_throttling_rate_limit
+
+  dynamic "route_settings" {
+    for_each = var.routes
+    content {
+      route_key              = "${route_settings.value.method} /${route_settings.key}"
+      throttling_burst_limit = try(route_settings.value.throttling_burst_limit, 50)
+      throttling_rate_limit  = try(route_settings.value.throttling_rate_limit, 10)
+    }
+    # Add a lifecycle block to prevent recreation if it already exists
+
   }
 
   dynamic "access_log_settings" {
