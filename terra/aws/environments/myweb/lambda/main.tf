@@ -77,6 +77,7 @@ module "lambda_sender_to_sns" {
 resource "aws_apigatewayv2_api" "api_gateway" {
   name          = "${var.api_gateway_name}-api"
   protocol_type = "HTTP"
+  disable_execute_api_endpoint = true
 }
 
 resource "aws_apigatewayv2_stage" "api_gateway_stage" {
@@ -108,6 +109,19 @@ resource "aws_apigatewayv2_stage" "api_gateway_stage" {
         responseLength   = "$context.responseLength"
         integrationError = "$context.integration.error"
       })
+    }
+  }
+}
+
+module "path_to_root" {
+  source = "../../../modules/path_for_api_gateway"
+
+  api_gateway_id = aws_apigatewayv2_api.api_gateway.id
+
+  routes = {
+    "" = {
+      method            = var.api_method
+      lambda_invoke_arn = module.lambda_main_page.lambda_function_invoke_arn
     }
   }
 }
@@ -149,4 +163,13 @@ module "path_for_sender" {
       lambda_invoke_arn = module.lambda_sender_to_sns.lambda_function_invoke_arn
     }
   }
+}
+
+module "CloudFront" {
+  source = "../../../modules/cloudfront"
+
+  domain_name = var.domain_name
+  origin_id  =  var.origin_id
+  origin_path = "/${var.environment}"
+  aws_apigatewayv2_api_id = aws_apigatewayv2_api.api_gateway.id
 }

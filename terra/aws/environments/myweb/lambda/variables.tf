@@ -100,3 +100,14 @@ variable "api_log_destination_arn" {
   type        = string
   default     = null
 }
+
+variable "domain_name" {
+  type = string
+  description = "domain name"
+}
+
+variable "origin_id" {
+  type = string
+  description = "name origin"
+}
+
