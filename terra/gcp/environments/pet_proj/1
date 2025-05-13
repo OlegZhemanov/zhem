@@ -1,0 +1,7 @@
+curl -X POST \
+  -H "Content-Type: application/json" \
+  -d '{
+    "email": "ozhemanov@gmail.com",
+    "name": "oleg"
+  }' \
+  "https://us-central1-spry-pipe-451218-k2.cloudfunctions.net/email-sender"

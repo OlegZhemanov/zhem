@@ -72,6 +72,7 @@ resource "google_compute_instance" "web_instance" {
     access_config {
       network_tier = "PREMIUM"                      # Premium network tier for better performance
     }
+    network_ip = "10.0.1.10"
 
     queue_count = 0                                 # Number of network queues
     stack_type  = "IPV4_ONLY"                      # IP version stack type
@@ -119,6 +120,7 @@ resource "google_compute_instance" "backend_instance" {
     access_config {
       network_tier = "PREMIUM"
     }
+    network_ip = "10.0.2.2"
 
     queue_count = 0
     stack_type  = "IPV4_ONLY"
@@ -166,6 +168,7 @@ resource "google_compute_instance" "private_instance" {
     access_config {
       network_tier = "PREMIUM"
     }
+    network_ip = "10.0.3.3"
 
     queue_count = 0
     stack_type  = "IPV4_ONLY"
