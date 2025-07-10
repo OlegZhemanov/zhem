@@ -1,5 +1,6 @@
+
 environment = "immich"
-region      = "ca-central-1"
+region      = "eu-central-1"# "eu-central-1"
 
 #Network
 vpc_cidr                = "10.10.0.0/16"
@@ -9,10 +10,12 @@ private_subnet_cidr     = ["10.10.11.0/24", "10.10.12.0/24"]
 # database_subnets_cidr   = []
 
 #EC2
-instance_type    = "c5.large"
-ami_id           = "ami-017df5c960af6d0eb"  # Will use latest Amazon Linux 2
-key_name         = "ca-central-1"
-root_volume_size = 10
+instance_type    = "c4.xlarge"  #c4.4xlarge cpu16 x86_64 ram30, c5.large cpu2 x86_64 ram4, c4.xlarge cpu4 x86_64 ram7.5
+# ami_id is now automatically selected based on region:
+# ca-central-1: ami-017df5c960af6d0eb
+# eu-central-1: ami-0f232702240acc23a
+# key_name will be auto-generated using region name if not specified
+root_volume_size = 500   # Increased for media storage
 root_volume_type = "gp3"
 
 #Security Groups
@@ -58,3 +61,14 @@ alb_ssl_policy                 = "ELBSecurityPolicy-TLS-1-2-2017-01"
 domain_name        = "zhemanov.link"
 subdomain          = "photo"
 create_hosted_zone = false
+
+#S3 Configuration
+s3_mount_path          = "/mnt/s3-immich-storage"
+s3_mount_prefix        = ["photos", "videos", "backups"]
+install_s3_mountpoint  = true
+
+# Media File Sync Configuration
+enable_file_sync        = true
+docker_media_directory  = "/opt/immich-storage/media"
+sync_file_types        = ["jpg", "jpeg", "png", "heic", "webp", "mp4", "mov", "avi", "mkv"]
+remove_local_files     = false  # Keep local files as backup

@@ -54,6 +54,27 @@ output "ec2_private_ip" {
   value       = module.ec2.private_ip
 }
 
+output "ec2_key_name" {
+  description = "Key pair name used for the EC2 instance"
+  value       = module.ec2.key_name
+}
+
+output "ec2_key_created" {
+  description = "Whether a new key pair was created"
+  value       = module.ec2.key_pair_created
+}
+
+output "ec2_ssh_command" {
+  description = "SSH command to connect to the EC2 instance"
+  value       = module.ec2.ssh_connection_command
+}
+
+output "ec2_private_key_file" {
+  description = "Path to the private key file (only if key was generated)"
+  value       = module.ec2.private_key_file
+  sensitive   = true
+}
+
 # Target Group outputs
 output "target_group_arn" {
   description = "Target group ARN"
@@ -111,4 +132,55 @@ output "certificate_status" {
 output "https_subdomain_url" {
   description = "HTTPS URL for the photo subdomain"
   value       = "https://${var.subdomain}.${var.domain_name}"
+}
+
+# S3 outputs
+output "s3_bucket_name" {
+  description = "Name of the S3 bucket for media file storage"
+  value       = module.s3.bucket_name
+}
+
+output "s3_bucket_arn" {
+  description = "ARN of the S3 bucket for media file storage"
+  value       = module.s3.bucket_arn
+}
+
+output "s3_bucket_region" {
+  description = "Region where the S3 bucket is deployed"
+  value       = module.s3.bucket_region
+}
+
+output "s3_mount_path" {
+  description = "Path where S3 bucket is mounted on EC2"
+  value       = var.s3_mount_path
+}
+
+output "s3_mount_command" {
+  description = "Command to manually mount S3 bucket"
+  value       = "sudo mount -t mount-s3 s3://${module.s3.bucket_name} ${var.s3_mount_path}"
+}
+
+output "s3_mount_commands_with_prefixes" {
+  description = "Commands to mount S3 bucket with different prefixes"
+  value = [
+    for prefix in var.s3_mount_prefix : 
+    "sudo mount -t mount-s3 s3://${module.s3.bucket_name}/${prefix} ${var.s3_mount_path}/${prefix}"
+  ]
+}
+
+
+# Media sync configuration outputs
+output "media_directory" {
+  description = "Directory where Docker containers should save media files"
+  value       = var.docker_media_directory
+}
+
+output "file_sync_enabled" {
+  description = "Whether automatic file sync to S3 is enabled"
+  value       = var.enable_file_sync
+}
+
+output "supported_file_types" {
+  description = "List of file extensions that will be synced to S3"
+  value       = var.sync_file_types
 }

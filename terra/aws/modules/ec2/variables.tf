@@ -4,8 +4,14 @@ variable "environment" {
   default     = "default"
   
 }
+
+variable "region" {
+  description = "AWS region where resources are deployed"
+  type        = string
+}
+
 variable "ami" {
-  description = "AMI ID for the EC2 instance (if null, will use latest Amazon Linux 2)"
+  description = "AMI ID for the EC2 instance (if null, will use latest Ubuntu 22.04 LTS)"
   type        = string
   default     = null
 }
@@ -55,4 +61,34 @@ variable "root_volume_type" {
   description = "Root volume type (e.g., gp2, gp3)"
   type        = string
   default     = "gp2"
+}
+
+variable "enable_s3_mount" {
+  description = "Whether to enable S3 mount point"
+  type        = bool
+  default     = false
+}
+
+variable "s3_bucket_name" {
+  description = "S3 bucket name to mount (required if enable_s3_mount is true)"
+  type        = string
+  default     = ""
+}
+
+variable "iam_instance_profile" {
+  description = "IAM instance profile name to attach to EC2 instance"
+  type        = string
+  default     = null
+}
+
+variable "s3_mount_prefix" {
+  description = "List of S3 prefixes for mounting"
+  type        = list(string)
+  default     = []
+}
+
+variable "s3_mount_path" {
+  description = "Local path where S3 bucket will be mounted"
+  type        = string
+  default     = "/mnt/s3-storage"
 }

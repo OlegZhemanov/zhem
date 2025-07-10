@@ -5,9 +5,18 @@ provider "aws" {
 terraform {
   backend "s3" {
     bucket = "ozs-terra"
-    key = "immich/network/terraform.tfstate"
+    key    = "immich/network/terraform.tfstate"
     region = "ca-central-1"
   }
+}
+
+locals {
+  # Conditional AMI selection based on region
+  ami_id = var.ami_id != null ? var.ami_id : (
+    var.region == "ca-central-1" ? "ami-017df5c960af6d0eb" : 
+    var.region == "eu-central-1" ? "ami-02728a1333f7b591a" : 
+    null  # Will trigger an error if region is not supported
+  )
 }
 
 module "network" {
@@ -19,23 +28,7 @@ module "network" {
   private_subnet_cidr     = var.private_subnet_cidr
   private_subnet_cidr_eip = var.private_subnet_cidr_eip
   database_subnets_cidr   = var.database_subnets_cidr
-  common_tags = var.common_tags
-}
-
-module "ec2" {
-  source = "../../modules/ec2"
-
-  ami                     = var.ami_id
-  instance_type           = var.instance_type
-  key_name                = var.key_name
-  subnet_id               = module.network.public_subnet_ids[0]
-  security_group_ids      = [module.ec2_security_group.security_group_id]
-  associate_public_ip_address = true
-  tags                    = var.common_tags
-  environment             = var.environment
-
-  root_volume_size        = var.root_volume_size
-  root_volume_type        = var.root_volume_type
+  common_tags             = var.common_tags
 }
 
 module "ec2_security_group" {
@@ -44,10 +37,10 @@ module "ec2_security_group" {
   name        = "${var.environment}-ec2-sg"
   description = "Security group for EC2 instances"
   vpc_id      = module.network.vpc_id
-  
+
   ingress_rules = var.ingress_rules
   egress_rules  = var.egress_rules
-  
+
   tags = var.common_tags
 }
 
@@ -57,7 +50,7 @@ module "alb_security_group" {
   name        = "${var.environment}-alb-sg"
   description = "Security group for Application Load Balancer"
   vpc_id      = module.network.vpc_id
-  
+
   ingress_rules = [
     {
       from_port       = 80
@@ -76,25 +69,25 @@ module "alb_security_group" {
       description     = "HTTPS from internet"
     }
   ]
-  
+
   tags = var.common_tags
 }
 
 module "target_group" {
   source = "../../modules/target_group"
 
-  name                     = "${var.environment}-tg"
-  port                     = var.target_group_port
-  protocol                 = var.target_group_protocol
-  vpc_id                   = module.network.vpc_id
-  target_ids               = [module.ec2.instance_id]
-  
-  health_check_path        = var.health_check_path
-  health_check_port        = var.health_check_port
-  health_check_protocol    = var.health_check_protocol
-  health_check_matcher     = var.health_check_matcher
-  
-  tags                     = var.common_tags
+  name       = "${var.environment}-tg"
+  port       = var.target_group_port
+  protocol   = var.target_group_protocol
+  vpc_id     = module.network.vpc_id
+  target_ids = [module.ec2.instance_id]
+
+  health_check_path     = var.health_check_path
+  health_check_port     = var.health_check_port
+  health_check_protocol = var.health_check_protocol
+  health_check_matcher  = var.health_check_matcher
+
+  tags = var.common_tags
 }
 
 module "alb" {
@@ -104,16 +97,16 @@ module "alb" {
   internal        = var.alb_internal
   security_groups = [module.alb_security_group.security_group_id]
   subnets         = module.network.public_subnet_ids
-  
+
   enable_deletion_protection = var.alb_enable_deletion_protection
-  
+
   listeners = [
     {
-      port                = 80
-      protocol            = "HTTP"
-      default_action_type = "redirect"
-      redirect_port       = "443"
-      redirect_protocol   = "HTTPS"
+      port                 = 80
+      protocol             = "HTTP"
+      default_action_type  = "redirect"
+      redirect_port        = "443"
+      redirect_protocol    = "HTTPS"
       redirect_status_code = "HTTP_301"
     },
     {
@@ -125,7 +118,7 @@ module "alb" {
       target_group_arn    = module.target_group.target_group_arn
     }
   ]
-  
+
   tags = var.common_tags
 }
 
@@ -135,7 +128,7 @@ module "acm" {
   domain_name               = "${var.subdomain}.${var.domain_name}"
   subject_alternative_names = []
   validation_method         = "DNS"
-  route53_zone_id          = module.route53.zone_id
+  route53_zone_id           = module.route53.zone_id
 
   tags = var.common_tags
 }
@@ -159,3 +152,45 @@ module "route53" {
 
   tags = var.common_tags
 }
+
+module "s3" {
+  source = "../../modules/s3"
+
+  bucket_name         = var.s3_bucket_name != null ? var.s3_bucket_name : "${var.environment}-immich-media"
+  region              = var.region
+  versioning_enabled  = false
+  sse_algorithm       = "AES256"
+  block_public_access = true
+  create_ec2_role     = true
+  bucket_prefixes     = [for prefix in var.s3_mount_prefix : "${prefix}/"]
+
+  tags = merge(var.common_tags, {
+    Purpose = "Media file storage from EC2"
+  })
+}
+
+module "ec2" {
+  source = "../../modules/ec2"
+
+  ami                         = local.ami_id
+  instance_type               = var.instance_type
+  key_name                    = var.key_name
+  region                      = var.region
+  subnet_id                   = module.network.public_subnet_ids[0]
+  security_group_ids          = [module.ec2_security_group.security_group_id]
+  associate_public_ip_address = true
+  tags                        = var.common_tags
+  environment                 = var.environment
+
+  root_volume_size = var.root_volume_size
+  root_volume_type = var.root_volume_type
+
+  # S3 Mount Configuration
+  s3_bucket_name       = var.s3_bucket_name != null ? var.s3_bucket_name : module.s3.bucket_name
+  iam_instance_profile = module.s3.instance_profile_name
+  s3_mount_prefix      = var.s3_mount_prefix
+  s3_mount_path        = var.s3_mount_path
+
+  # depends_on = [ module.ebs, module.s3 ]
+}
+

@@ -54,7 +54,7 @@ variable "common_tags" {
 }
 
 variable "ami_id" {
-  description = "AMI ID for the EC2 instance (if null, will use latest Amazon Linux 2)"
+  description = "AMI ID for the EC2 instance (if null, will use latest Ubuntu 22.04 LTS)"
   type        = string
   default     = null
 }
@@ -66,9 +66,9 @@ variable "instance_type" {
 }
 
 variable "key_name" {
-  description = "Key name for the EC2 instance"
+  description = "Key name for the EC2 instance (if null, will create a new key pair named after the region)"
   type        = string
-  default     = "my-key"
+  default     = null
 }
 
 variable "root_volume_size" {
@@ -216,6 +216,65 @@ variable "subdomain" {
 
 variable "create_hosted_zone" {
   description = "Whether to create a new hosted zone or use existing"
+  type        = bool
+  default     = false
+}
+
+# S3 Configuration
+variable "s3_bucket_name" {
+  description = "S3 bucket name for media file sync (overrides default naming)"
+  type        = string
+  default     = null
+}
+
+variable "s3_mount_path" {
+  description = "Local path where S3 bucket will be mounted"
+  type        = string
+  default     = "/mnt/immich-storage"
+}
+
+variable "s3_bucket_prefixes" {
+  description = "List of prefixes to create in the S3 bucket for organizing content"
+  type        = list(string)
+  default = [
+    "photos/",
+    "videos/"
+  ]
+}
+
+variable "s3_mount_prefix" {
+  description = "List of S3 prefixes for mounting (used in terraform.tfvars)"
+  type        = list(string)
+  default     = ["photos", "videos", "backups"]
+}
+
+variable "install_s3_mountpoint" {
+  description = "Whether to install and configure S3 Mountpoint"
+  type        = bool
+  default     = true
+}
+
+# Media File Sync Configuration
+variable "enable_file_sync" {
+  description = "Whether to enable automatic file sync to S3"
+  type        = bool
+  default     = true
+}
+
+variable "docker_media_directory" {
+  description = "Directory path where Docker containers will save media files"
+  type        = string
+  default     = "/opt/immich-storage/media"
+}
+
+variable "sync_file_types" {
+  description = "List of file extensions to sync (without dots)"
+  type        = list(string)
+  default     = ["jpg", "jpeg", "png", "heic", "webp", "mp4", "mov", "avi", "mkv"]
+}
+
+variable "remove_local_files" {
+  description = "Whether to remove local files after successful S3 upload"
   type        = bool
   default     = false
 }
