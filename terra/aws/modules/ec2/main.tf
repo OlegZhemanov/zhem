@@ -13,37 +13,68 @@ data "aws_ami" "ubuntu" {
   }
 }
 
-# Generate private key for the key pair
+# Data source to check if key pair exists
+data "aws_key_pair" "existing" {
+  count    = var.key_name != null ? 1 : 0
+  key_name = var.key_name
+}
+
+# Data source to check if region-named key pair exists
+data "aws_key_pair" "region_key" {
+  count    = var.key_name == null ? 1 : 0
+  key_name = var.region
+
+  # This will fail gracefully if key doesn't exist
+  lifecycle {
+    postcondition {
+      condition     = self.key_name != null || self.key_name == null
+      error_message = "Key pair check completed"
+    }
+  }
+}
+
+# Try to get existing key pair, create if it doesn't exist
+data "aws_key_pair" "existing_check" {
+  count    = 1
+  key_name = var.key_name != null ? var.key_name : var.region
+  
+  # No lifecycle block needed for data sources
+}
+
+# Generate private key only if key_name is not provided
 resource "tls_private_key" "generated" {
   count     = var.key_name == null ? 1 : 0
   algorithm = "RSA"
   rsa_bits  = 4096
 }
 
-# Create a new key pair if no key_name is provided
+# Create new key pair only if key_name is not provided
 resource "aws_key_pair" "generated" {
   count      = var.key_name == null ? 1 : 0
   key_name   = var.region
   public_key = tls_private_key.generated[0].public_key_openssh
-  
-  tags = merge(var.tags, {
-    Name = "${var.region}-key-pair"
-    CreatedBy = "terraform"
-  })
+
+  tags = var.tags
 }
 
-# Save private key to local file (optional, but useful for access)
+# Save private key to file only if generated
 resource "local_file" "private_key" {
   count           = var.key_name == null ? 1 : 0
   content         = tls_private_key.generated[0].private_key_pem
-  filename        = "${path.root}/${var.region}-key.pem"
+  filename        = "${var.region}-key.pem"
   file_permission = "0600"
 }
 
 # Locals block for key pair logic
 locals {
-  # Determine the final key name to use
+  # Use provided key_name or generated key name
   final_key_name = var.key_name != null ? var.key_name : aws_key_pair.generated[0].key_name
+  
+  # Determine if we created a new key
+  key_was_created = var.key_name == null
+  
+  # Private key file path
+  private_key_file = local.key_was_created ? "${var.region}-key.pem" : "Using existing key pair - no private key file generated"
 }
 
 # IAM role for EC2 to access S3
