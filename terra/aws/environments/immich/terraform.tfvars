@@ -8,14 +8,14 @@ private_subnet_cidr     = ["10.10.11.0/24", "10.10.12.0/24"]
 # private_subnet_cidr_eip = []
 # database_subnets_cidr   = []
 
-#EC2
-instance_type    = "c4.xlarge"  #c4.4xlarge cpu16 x86_64 ram30, c5.large cpu2 x86_64 ram4, c4.xlarge cpu4 x86_64 ram7.5, c6in.4xlarge vcpu16 x86_64 ram32
+# EC2 
+instance_type    = "t3.medium"  # t3.medium cpu2 x86_64 ram4
 # ami_id is now automatically selected based on region:
 # ca-central-1: ami-017df5c960af6d0eb
 # eu-central-1: ami-0f232702240acc23a
 # Use existing key pair since it already exists in AWS
 key_name = "eu-central-1"
-root_volume_size = 2000   # Increased for media storage
+root_volume_size = 50   # Increased for media storage
 root_volume_type = "gp3"
 
 #Security Groups
